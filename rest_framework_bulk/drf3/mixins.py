@@ -43,6 +43,7 @@ class BulkUpdateModelMixin(object):
     Update model instances in bulk by using the Serializers
     ``many=True`` ability from Django REST >= 2.2.5.
     """
+    acceptable_csv_file_name = None
 
     def get_object(self):
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
@@ -63,13 +64,24 @@ class BulkUpdateModelMixin(object):
     def bulk_update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
 
-        # restrict the update to the filtered queryset
-        serializer = self.get_serializer(
-            self.filter_queryset(self.get_queryset()),
-            data=request.data,
-            many=True,
-            partial=partial,
-        )
+        serializer = None
+        request.csv_with_keys = True
+        if self.acceptable_csv_file_name and self.acceptable_csv_file_name in request.data:
+            # restrict the update to the filtered queryset
+            serializer = self.get_serializer(
+                self.filter_queryset(self.get_queryset()),
+                data=request.data[self.acceptable_csv_file_name],
+                many=True,
+                partial=partial,
+            )
+        else:
+            # restrict the update to the filtered queryset
+            serializer = self.get_serializer(
+                self.filter_queryset(self.get_queryset()),
+                data=request.data,
+                many=True,
+                partial=partial,
+            )
         serializer.is_valid(raise_exception=True)
         self.perform_bulk_update(serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)
