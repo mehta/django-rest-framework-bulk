@@ -2,6 +2,7 @@ from __future__ import print_function, unicode_literals
 from rest_framework import status
 from rest_framework.mixins import CreateModelMixin
 from rest_framework.response import Response
+from functools import wraps
 
 
 __all__ = [
@@ -9,6 +10,17 @@ __all__ = [
     'BulkDestroyModelMixin',
     'BulkUpdateModelMixin',
 ]
+
+
+def decorator(fn):
+    @wraps(fn)
+    def inner(inst, request, *args, **kwargs):
+        request.csv_with_keys = True
+        if self.acceptable_csv_file_name and self.acceptable_csv_file_name in request.data:
+            return fn(inst, request, request.data[self.acceptable_csv_file_name], *args, **kwargs)
+        else:
+            return fn(inst, request, request.data, *args, **kwargs)
+    return inner
 
 
 class BulkCreateModelMixin(CreateModelMixin):
@@ -22,14 +34,15 @@ class BulkCreateModelMixin(CreateModelMixin):
         requests will use ``POST`` request method.
     """
 
-    def create(self, request, *args, **kwargs):
-        bulk = isinstance(request.data, list)
+    @decorator(self, request, *args, **kwargs)
+    def create(self, request, data, *args, **kwargs):
+        bulk = isinstance(data, list)
 
         if not bulk:
             return super(BulkCreateModelMixin, self).create(request, *args, **kwargs)
 
         else:
-            serializer = self.get_serializer(data=request.data, many=True)
+            serializer = self.get_serializer(data=data, many=True)
             serializer.is_valid(raise_exception=True)
             self.perform_bulk_create(serializer)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -61,27 +74,16 @@ class BulkUpdateModelMixin(object):
         # before any of the API actions (e.g. create, update, etc)
         return
 
-    def bulk_update(self, request, *args, **kwargs):
+    @decorator(self, request, *args, **kwargs)
+    def bulk_update(self, request, data=None, *args, **kwargs):
         partial = kwargs.pop('partial', False)
 
-        serializer = None
-        request.csv_with_keys = True
-        if self.acceptable_csv_file_name and self.acceptable_csv_file_name in request.data:
-            # restrict the update to the filtered queryset
-            serializer = self.get_serializer(
-                self.filter_queryset(self.get_queryset()),
-                data=request.data[self.acceptable_csv_file_name],
-                many=True,
-                partial=partial,
-            )
-        else:
-            # restrict the update to the filtered queryset
-            serializer = self.get_serializer(
-                self.filter_queryset(self.get_queryset()),
-                data=request.data,
-                many=True,
-                partial=partial,
-            )
+        serializer = self.get_serializer(
+            self.filter_queryset(self.get_queryset()),
+            data=data,
+            many=True,
+            partial=partial,
+        )
         serializer.is_valid(raise_exception=True)
         self.perform_bulk_update(serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)
