@@ -16,8 +16,8 @@ def decorator(fn):
     @wraps(fn)
     def inner(inst, request, *args, **kwargs):
         request.csv_with_keys = True
-        if self.acceptable_csv_file_name and self.acceptable_csv_file_name in request.data:
-            args['data'] = request.data[self.acceptable_csv_file_name]
+        if inst.acceptable_csv_file_name and inst.acceptable_csv_file_name in request.data:
+            args['data'] = request.data[inst.acceptable_csv_file_name]
         else:
             args['data'] = request.data
         return fn(inst, request, *args, **kwargs)
