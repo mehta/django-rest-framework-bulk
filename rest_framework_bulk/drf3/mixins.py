@@ -12,18 +12,6 @@ __all__ = [
 ]
 
 
-def decorator(fn):
-    @wraps(fn)
-    def inner(inst, request, *args, **kwargs):
-        request.csv_with_keys = True
-        if inst.acceptable_csv_file_name and inst.acceptable_csv_file_name in request.data:
-            args['data'] = request.data[inst.acceptable_csv_file_name]
-        else:
-            args['data'] = request.data
-        return fn(inst, request, *args, **kwargs)
-    return inner
-
-
 class BulkCreateModelMixin(CreateModelMixin):
     """
     Either create a single or many model instances in bulk by using the
@@ -35,14 +23,13 @@ class BulkCreateModelMixin(CreateModelMixin):
         requests will use ``POST`` request method.
     """
 
-    @decorator
     def create(self, request, *args, **kwargs):
-        data = args['data']
+        request.csv_with_keys = True
+        data = request.data[self.acceptable_csv_file_name]
         bulk = isinstance(data, list)
 
         if not bulk:
             return super(BulkCreateModelMixin, self).create(request, *args, **kwargs)
-
         else:
             serializer = self.get_serializer(data=data, many=True)
             serializer.is_valid(raise_exception=True)
@@ -76,9 +63,10 @@ class BulkUpdateModelMixin(object):
         # before any of the API actions (e.g. create, update, etc)
         return
 
-    @decorator
     def bulk_update(self, request, *args, **kwargs):
-        data = args['data']
+        request.csv_with_keys = True
+        data = request.data[self.acceptable_csv_file_name]
+
         partial = kwargs.pop('partial', False)
 
         serializer = self.get_serializer(
