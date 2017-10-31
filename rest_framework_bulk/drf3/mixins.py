@@ -17,9 +17,10 @@ def decorator(fn):
     def inner(inst, request, *args, **kwargs):
         request.csv_with_keys = True
         if self.acceptable_csv_file_name and self.acceptable_csv_file_name in request.data:
-            return fn(inst, request, request.data[self.acceptable_csv_file_name], *args, **kwargs)
+            args['data'] = request.data[self.acceptable_csv_file_name]
         else:
-            return fn(inst, request, request.data, *args, **kwargs)
+            args['data'] = request.data
+        return fn(inst, request, *args, **kwargs)
     return inner
 
 
@@ -34,8 +35,9 @@ class BulkCreateModelMixin(CreateModelMixin):
         requests will use ``POST`` request method.
     """
 
-    @decorator(self, request, *args, **kwargs)
-    def create(self, request, data, *args, **kwargs):
+    @decorator
+    def create(self, request, *args, **kwargs):
+        data = args['data']
         bulk = isinstance(data, list)
 
         if not bulk:
@@ -74,8 +76,9 @@ class BulkUpdateModelMixin(object):
         # before any of the API actions (e.g. create, update, etc)
         return
 
-    @decorator(self, request, *args, **kwargs)
-    def bulk_update(self, request, data=None, *args, **kwargs):
+    @decorator
+    def bulk_update(self, request, *args, **kwargs):
+        data = args['data']
         partial = kwargs.pop('partial', False)
 
         serializer = self.get_serializer(
